@@ -18,20 +18,22 @@ function CalculatorCore() {
 
   // Sync initial XP from auth context
   useEffect(() => {
-    if (user !== null && !loading) {
-      const xpString = masteryXp.toLocaleString();
-      setXpInput(xpString);
-      const parsedXp = masteryXp;
-      if (!isNaN(parsedXp) && parsedXp >= 0) {
-        const rank = getCurrentRank(parsedXp);
-        setCurrentRank(rank);
-        const upcoming = getUpcomingRanks(parsedXp, distribution / 100);
-        setProjections(upcoming);
+    if (!loading) {
+      if (user !== null || (user === null && masteryXp > 0)) {
+        const xpString = masteryXp.toLocaleString();
+        setXpInput(xpString);
+        const parsedXp = masteryXp;
+        if (!isNaN(parsedXp) && parsedXp >= 0) {
+          const rank = getCurrentRank(parsedXp);
+          setCurrentRank(rank);
+          const upcoming = getUpcomingRanks(parsedXp, distribution / 100);
+          setProjections(upcoming);
+        }
+      } else {
+        setXpInput('');
+        setProjections([]);
+        setCurrentRank(getCurrentRank(0));
       }
-    } else if (user === null && !loading) {
-      setXpInput('');
-      setProjections([]);
-      setCurrentRank(getCurrentRank(0));
     }
   }, [user, masteryXp, loading]);
 
@@ -128,7 +130,7 @@ function CalculatorCore() {
                       }}
                       onBlur={() => {
                         const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
-                        if (!isNaN(parsedXp) && parsedXp >= 0 && user && parsedXp !== masteryXp) {
+                        if (!isNaN(parsedXp) && parsedXp >= 0 && parsedXp !== masteryXp) {
                           updateMasteryXp(parsedXp);
                         }
                       }}
