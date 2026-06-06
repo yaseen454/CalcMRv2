@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 
@@ -21,6 +21,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | undefined;
+    
+    // Handle redirect results for users returning to the app from custom domains
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log("Successfully logged in via redirect:", result.user);
+        }
+      })
+      .catch((error) => {
+        console.error("Redirect auth error:", error);
+      });
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -67,7 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      // Bypasses 3rd-party cookie blocking on custom domains like Netlify by utilizing redirect auth
+      const isIframe = window.self !== window.top;
+      if (isIframe) {
+        await signInWithPopup(auth, googleProvider);
+      } else {
+        await signInWithRedirect(auth, googleProvider);
+      }
     } catch (error) {
       console.error("Error signing in with Google", error);
     }
