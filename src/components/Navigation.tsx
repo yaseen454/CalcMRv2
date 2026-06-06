@@ -17,7 +17,7 @@ export function Navigation() {
 
           <div className="flex items-center space-x-6">
             <a 
-              href="https://github.com/yaseen454/CalcMR" 
+              href="https://github.com/yaseen454/CalcMRv2" 
               target="_blank" 
               rel="noreferrer"
               className="text-gray-400 hover:text-white transition-colors"
