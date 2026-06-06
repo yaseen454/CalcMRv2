@@ -13,23 +13,30 @@ const preconfiguredConfig = {
   measurementId: "G-J1DE8VGTED"
 };
 
-// Dynamically determine the best authDomain to avoid cross-origin cookie blocking
+// Dynamically determine the best authDomain.
+// By default, we use the Firebase-authorized calcmr-ca8a2.firebaseapp.com to prevent "redirect_uri_mismatch" errors 
+// on Netlify or custom domains since this domain is pre-authorized inside the Google Cloud Console.
+// If the developer explicitly configures custom domain proxying in Google Console and Firebase, they can 
+// set the VITE_USE_CUSTOM_AUTH_DOMAIN environment variable to "true".
 const getAuthDomain = () => {
+  const defaultAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || preconfiguredConfig.authDomain;
   if (typeof window === 'undefined') {
-    return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || preconfiguredConfig.authDomain;
+    return defaultAuthDomain;
   }
+  
   const hostname = window.location.hostname;
-  // Use default Firebase authentication domain on local host or inside the AI Studio preview environment
-  if (
-    hostname === 'localhost' || 
-    hostname === '127.0.0.1' || 
-    hostname.includes('run.app') || 
-    hostname.includes('googleusercontent.com')
+  const useCustomAuthDomain = import.meta.env.VITE_USE_CUSTOM_AUTH_DOMAIN === 'true';
+
+  if (useCustomAuthDomain && 
+      hostname !== 'localhost' && 
+      hostname !== '127.0.0.1' && 
+      !hostname.includes('run.app') && 
+      !hostname.includes('googleusercontent.com')
   ) {
-    return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || preconfiguredConfig.authDomain;
+    return hostname;
   }
-  // Use the current custom domain (e.g. Netlify) with the matching proxy/rewrite set up in public/_redirects
-  return hostname;
+  
+  return defaultAuthDomain;
 };
 
 // Dynamically use client environment variables if present (e.g. on Netlify), falling back to preconfigured settings
