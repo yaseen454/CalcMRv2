@@ -14,12 +14,11 @@ service cloud.firestore {
 
     function isValidUserProfile(data) {
       return data.keys().hasAll(['currentXp', 'updatedAt']) 
-          && (data.keys().size() == 2 || (data.keys().size() == 3 && 'history' in data.keys()))
+          && data.keys().size() == 2
           && data.currentXp is number
           && data.currentXp >= 0
           && data.currentXp <= 10000000
-          && data.updatedAt == request.time
-          && (!('history' in data.keys()) || data.history is list);
+          && data.updatedAt == request.time;
     }
 
     match /users/{userId} {
@@ -32,7 +31,7 @@ service cloud.firestore {
       allow update: if isSignedIn() 
         && request.auth.uid == userId
         && isValidUserProfile(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['currentXp', 'updatedAt', 'history']);
+        && incoming().diff(existing()).affectedKeys().hasOnly(['currentXp', 'updatedAt']);
     }
   }
 }
