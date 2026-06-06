@@ -31,11 +31,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Use onSnapshot for real-time updates and faster local caching
         unsubscribeSnapshot = onSnapshot(docRef, async (docSnap) => {
           if (docSnap.exists()) {
-            setMasteryXp(docSnap.data().currentXp || 0);
+            const serverXp = docSnap.data().currentXp || 0;
+            setMasteryXp(serverXp);
+            // Keep local storage in sync
+            localStorage.setItem('calcmr_mastery_xp', serverXp.toString());
           } else {
-            // Document doesn't exist, create it with 0
+            // Document doesn't exist, migration from localStorage to account
             try {
-              await setDoc(docRef, { currentXp: 0, updatedAt: serverTimestamp() });
+              const localXpStr = localStorage.getItem('calcmr_mastery_xp');
+              const initialXp = localXpStr ? parseInt(localXpStr, 10) : 0;
+              await setDoc(docRef, { currentXp: initialXp, updatedAt: serverTimestamp() });
+              setMasteryXp(initialXp);
             } catch (err) {
               console.error("Error creating initial profile", err);
             }
@@ -46,7 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         });
       } else {
-        setMasteryXp(0);
+        const localXpStr = localStorage.getItem('calcmr_mastery_xp');
+        setMasteryXp(localXpStr ? parseInt(localXpStr, 10) : 0);
         if (unsubscribeSnapshot) unsubscribeSnapshot();
         setLoading(false);
       }
@@ -76,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateMasteryXp = async (newXp: number) => {
     setMasteryXp(newXp);
+    localStorage.setItem('calcmr_mastery_xp', newXp.toString());
     if (user) {
       try {
         const docRef = doc(db, 'users', user.uid);

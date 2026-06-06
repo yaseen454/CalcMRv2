@@ -35,7 +35,7 @@ function CalculatorCore() {
     }
   }, [user, masteryXp, loading]);
 
-  // Handle auto-calc on slider change if valid XP exists
+  // Handle auto-calc on slider-  change if valid XP exists
   useEffect(() => {
     const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
     if (!isNaN(parsedXp) && parsedXp >= 0) {
