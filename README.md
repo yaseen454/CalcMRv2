@@ -1,4 +1,4 @@
-# CalcMR: Warframe Mastery Calculator
+# CalcMRv2: Warframe Mastery Calculator
 
 **Live Demo:** [https://calcmr.netlify.app/](https://calcmr.netlify.app/)
 
