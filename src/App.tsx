@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './lib/AuthProvider';
 import { Navigation } from './components/Navigation';
 import { Slider } from './components/Slider';
 import { RankTable } from './components/Table';
+import { XpHistory } from './components/XpHistory';
 import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, MAX_XP, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
 import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target } from 'lucide-react';
@@ -219,6 +220,7 @@ function CalculatorCore() {
                 </div>
               </m.div>
             )}
+            <XpHistory />
           </div>
 
           {/* Right Column: Results Table */}
