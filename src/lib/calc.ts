@@ -144,6 +144,46 @@ export function optimizeDistribution(currentXp: number): number {
   return bestDist;
 }
 
+export function optimizeAllRanks(currentXp: number): number {
+  const currentRank = getCurrentRank(currentXp);
+  if (currentRank.rankNumber >= MAX_RANK) return 50;
+
+  let bestDist = 50;
+  let minTotalOvershoot = Infinity;
+  let maxCompletedRanks = -1;
+
+  for (let dist = 0; dist <= 100; dist += 1) {
+    const projections = getUpcomingRanks(currentXp, dist / 100);
+    if (projections.length === 0) continue;
+
+    let totalOvershoot = 0;
+    let completedRanksCount = 0;
+
+    for (const p of projections) {
+      if (p.xpDifference >= 0) {
+        completedRanksCount++;
+        totalOvershoot += p.xpDifference;
+      } else {
+        // Deficit counts as a large custom penalty to discourage under-leveling
+        totalOvershoot += Math.abs(p.xpDifference) * 10;
+      }
+    }
+
+    if (completedRanksCount > maxCompletedRanks) {
+      maxCompletedRanks = completedRanksCount;
+      minTotalOvershoot = totalOvershoot;
+      bestDist = dist;
+    } else if (completedRanksCount === maxCompletedRanks) {
+      if (totalOvershoot < minTotalOvershoot) {
+        minTotalOvershoot = totalOvershoot;
+        bestDist = dist;
+      }
+    }
+  }
+
+  return bestDist;
+}
+
 export function getUpcomingRanks(currentXp: number, weaponDistribution: number): UpcomingRankProjection[] {
   const currentRank = getCurrentRank(currentXp);
   const projections: UpcomingRankProjection[] = [];
