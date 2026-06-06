@@ -18,3 +18,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+
+export const isPlaceholderConfig = 
+  (!import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY.includes("YOUR_")) && 
+  (firebaseConfigLookup.apiKey.includes("YOUR_"));

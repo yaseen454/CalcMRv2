@@ -4,7 +4,7 @@ import { LogIn, LogOut, Github, Calculator } from 'lucide-react';
 import { m } from 'motion/react';
 
 export function Navigation() {
-  const { user, signInWithGoogle, logout } = useAuth();
+  const { user, signInWithGoogle, logout, authError } = useAuth();
 
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10 shadow-lg">
@@ -44,13 +44,21 @@ export function Navigation() {
                 </button>
               </div>
             ) : (
-              <button 
-                onClick={signInWithGoogle}
-                className="flex items-center space-x-2 text-sm text-warframe-blue hover:text-warframe-blue/80 transition-colors bg-warframe-blue/10 hover:bg-warframe-blue/20 px-4 py-2 rounded-md font-medium"
-              >
-                <LogIn className="h-4 w-4" />
-                <span>Sign in with Google</span>
-              </button>
+              <div className="flex flex-col items-end relative">
+                <button 
+                  onClick={signInWithGoogle}
+                  className="flex items-center space-x-2 text-sm text-warframe-blue hover:text-warframe-blue/80 transition-colors bg-warframe-blue/10 hover:bg-warframe-blue/20 px-4 py-2 rounded-md font-medium"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span>Sign in with Google</span>
+                </button>
+                {authError && (
+                  <div className="absolute top-12 right-0 bg-red-950/90 text-red-300 text-xs px-3 py-2 rounded-md border border-red-500/30 w-72 text-left shadow-2xl z-50">
+                    <p className="font-semibold text-red-400 mb-0.5">Authentication Issue</p>
+                    <p className="leading-normal">{authError}</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

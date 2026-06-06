@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from './firebase';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db, googleProvider, isPlaceholderConfig } from './firebase';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   masteryXp: number;
+  authError: string | null;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateMasteryXp: (xp: number) => Promise<void>;
@@ -18,19 +19,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [masteryXp, setMasteryXp] = useState<number>(0);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | undefined;
     
+    if (isPlaceholderConfig) {
+      setAuthError("Firebase API configuration is missing on this site. Please add your Netlify environment variables (see instructions in chat).");
+      setLoading(false);
+      return;
+    }
+
     // Handle redirect results for users returning to the app from custom domains
     getRedirectResult(auth)
       .then((result) => {
         if (result) {
           console.log("Successfully logged in via redirect:", result.user);
+          setAuthError(null);
         }
       })
-      .catch((error) => {
+      .catch((error: any) => {
         console.error("Redirect auth error:", error);
+        setAuthError(error.message || "Failed to complete sign-in from redirect.");
       });
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -77,6 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
+    setAuthError(null);
+    if (isPlaceholderConfig) {
+      setAuthError("Firebase API configuration is missing. You need to configure Netlify environment variables to enable login.");
+      return;
+    }
+    
     try {
       // Bypasses 3rd-party cookie blocking on custom domains like Netlify by utilizing redirect auth
       const isIframe = window.self !== window.top;
@@ -85,14 +101,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         await signInWithRedirect(auth, googleProvider);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing in with Google", error);
+      setAuthError(error.message || "An authentication error occurred.");
     }
   };
 
   const logout = async () => {
     try {
       await signOut(auth);
+      setAuthError(null);
     } catch (error) {
       console.error("Error signing out", error);
     }
@@ -112,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, masteryXp, signInWithGoogle, logout, updateMasteryXp }}>
+    <AuthContext.Provider value={{ user, loading, masteryXp, authError, signInWithGoogle, logout, updateMasteryXp }}>
       {children}
     </AuthContext.Provider>
   );
