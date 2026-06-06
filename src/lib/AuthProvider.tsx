@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       if (currentUser) {
         setLoading(true); // Re-trigger loading state when user auth changes
+        setMasteryXp(0); // Immediately clear the visual state to prevent bleed-over!
         const docRef = doc(db, 'users', currentUser.uid);
         
         // Use onSnapshot for real-time updates and faster local caching
@@ -76,16 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Document doesn't exist, migration from anonymous guest/offline local storage to user account
             try {
-              // Ensure we only migrate guest/offline calculations if active edits were made in this session.
-              // This guarantees that brand new logins do not inherit legacy leftover structures or another user's logged-out states.
-              const isGuestModified = sessionStorage.getItem('calcmr_guest_modified') === 'true';
-              let initialXp = 0;
-              
-              if (isGuestModified) {
-                const offlineXpStr = localStorage.getItem('calcmr_mastery_xp_offline');
-                initialXp = offlineXpStr ? parseInt(offlineXpStr, 10) : 0;
-              }
-              
+              const offlineXpStr = localStorage.getItem('calcmr_mastery_xp_offline');
+              const initialXp = offlineXpStr ? parseInt(offlineXpStr, 10) : 0;
               await setDoc(docRef, { currentXp: initialXp, updatedAt: serverTimestamp() });
               setMasteryXp(initialXp);
               
@@ -94,7 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               // Clear guest modifications since they're securely persisted in the new account profile
               localStorage.removeItem('calcmr_mastery_xp_offline');
-              sessionStorage.removeItem('calcmr_guest_modified');
             } catch (err) {
               console.error("Error creating initial profile", err);
             }
@@ -137,10 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      localStorage.removeItem('calcmr_mastery_xp_offline');
       await signOut(auth);
       setAuthError(null);
-      // Clear any session storage modification states on explicit sign out
-      sessionStorage.removeItem('calcmr_guest_modified');
     } catch (error) {
       console.error("Error signing out", error);
     }
@@ -148,19 +139,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateMasteryXp = async (newXp: number) => {
     setMasteryXp(newXp);
-    if (user) {
-      localStorage.setItem(`calcmr_mastery_xp_${user.uid}`, newXp.toString());
+    const currentAuthUser = auth.currentUser;
+    if (currentAuthUser) {
+      localStorage.setItem(`calcmr_mastery_xp_${currentAuthUser.uid}`, newXp.toString());
       try {
-        const docRef = doc(db, 'users', user.uid);
+        const docRef = doc(db, 'users', currentAuthUser.uid);
         await setDoc(docRef, { currentXp: newXp, updatedAt: serverTimestamp() }, { merge: true });
       } catch (error) {
         console.error("Error updating mastery XP in Firestore", error);
       }
     } else {
       localStorage.setItem('calcmr_mastery_xp_offline', newXp.toString());
-      // Mark that guest data was actively modified during this specific browser session.
-      // This will allow migrating this guest progress if the guest chooses to sign up/sign in during this session.
-      sessionStorage.setItem('calcmr_guest_modified', 'true');
     }
   };
 
