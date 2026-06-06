@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './lib/AuthProvider';
 import { Navigation } from './components/Navigation';
 import { Slider } from './components/Slider';
 import { RankTable } from './components/Table';
-import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, MAX_XP } from './lib/calc';
+import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, MAX_XP, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
 import { Server, Crosshair, Package, Cloud } from 'lucide-react';
 import { cn } from './lib/utils';
@@ -213,8 +213,8 @@ function CalculatorCore() {
                 </div>
 
                 <div className="text-sm text-gray-400 leading-relaxed bg-white/5 p-4 rounded-lg">
-                  <span className="text-warframe-blue font-medium">Weapons</span> (Primaries, Secondaries, Melees, etc.) average 3,077 XP each. <br className="my-2"/>
-                  <span className="text-warframe-gold font-medium">Deployables</span> (Warframes, Companions, Archwings) grant 6,000 XP each.
+                  <span className="text-warframe-blue font-medium">Weapons</span> (Primaries, Secondaries, Melees, etc.) average {WEAPON_XP.toLocaleString()} XP each. <br className="my-2"/>
+                  <span className="text-warframe-gold font-medium">Deployables</span> (Warframes, Companions, Archwings) grant {DEPLOYABLE_XP.toLocaleString()} XP each.
                 </div>
               </m.div>
             )}
