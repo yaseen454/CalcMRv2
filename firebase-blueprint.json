@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Stores user mastery details",
+      "type": "object",
+      "properties": {
+        "currentXp": {
+          "type": "number",
+          "description": "The user's current mastery XP"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update"
+        }
+      },
+      "required": ["currentXp", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User profile containing their mastery XP data"
+    }
+  }
+}

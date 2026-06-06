@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['currentXp', 'updatedAt']) 
+          && data.keys().size() == 2
+          && data.currentXp is number
+          && data.currentXp >= 0
+          && data.currentXp <= 10000000
+          && data.updatedAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      
+      allow create: if isSignedIn() 
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming());
+        
+      allow update: if isSignedIn() 
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['currentXp', 'updatedAt']);
+    }
+  }
+}
