@@ -30,6 +30,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Migrate legacy local storage key to the offline/guest key if any offline configuration is not yet created
+    try {
+      const legacyXp = localStorage.getItem('calcmr_mastery_xp');
+      if (legacyXp !== null && localStorage.getItem('calcmr_mastery_xp_offline') === null) {
+        localStorage.setItem('calcmr_mastery_xp_offline', legacyXp);
+        localStorage.removeItem('calcmr_mastery_xp');
+      }
+    } catch (e) {
+      console.warn("Storage migration failed", e);
+    }
+
     // Handle redirect results for users returning to the app from custom domains
     getRedirectResult(auth)
       .then((result) => {
@@ -44,6 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      // Unsubscribe from any previous snapshot listener to prevent cross-account triggers/leaks
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = undefined;
+      }
+
       setUser(currentUser);
       if (currentUser) {
         setLoading(true); // Re-trigger loading state when user auth changes
@@ -54,15 +71,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (docSnap.exists()) {
             const serverXp = docSnap.data().currentXp || 0;
             setMasteryXp(serverXp);
-            // Keep local storage in sync
-            localStorage.setItem('calcmr_mastery_xp', serverXp.toString());
+            // Save to user-specific local storage
+            localStorage.setItem(`calcmr_mastery_xp_${currentUser.uid}`, serverXp.toString());
           } else {
-            // Document doesn't exist, migration from localStorage to account
+            // Document doesn't exist, migration from anonymous guest/offline local storage to user account
             try {
-              const localXpStr = localStorage.getItem('calcmr_mastery_xp');
-              const initialXp = localXpStr ? parseInt(localXpStr, 10) : 0;
+              const offlineXpStr = localStorage.getItem('calcmr_mastery_xp_offline');
+              const initialXp = offlineXpStr ? parseInt(offlineXpStr, 10) : 0;
               await setDoc(docRef, { currentXp: initialXp, updatedAt: serverTimestamp() });
               setMasteryXp(initialXp);
+              
+              // Persist locally for this user
+              localStorage.setItem(`calcmr_mastery_xp_${currentUser.uid}`, initialXp.toString());
+              
+              // Since the offline data has been migrated, remove it so subsequent logins (or other users)
+              // don't try to migrate the same legacy/offline data again
+              localStorage.removeItem('calcmr_mastery_xp_offline');
             } catch (err) {
               console.error("Error creating initial profile", err);
             }
@@ -73,9 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         });
       } else {
-        const localXpStr = localStorage.getItem('calcmr_mastery_xp');
-        setMasteryXp(localXpStr ? parseInt(localXpStr, 10) : 0);
-        if (unsubscribeSnapshot) unsubscribeSnapshot();
+        // If logged out or unauthenticated, retrieve the guest/offline storage value
+        const offlineXpStr = localStorage.getItem('calcmr_mastery_xp_offline');
+        setMasteryXp(offlineXpStr ? parseInt(offlineXpStr, 10) : 0);
         setLoading(false);
       }
     });
@@ -114,14 +138,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateMasteryXp = async (newXp: number) => {
     setMasteryXp(newXp);
-    localStorage.setItem('calcmr_mastery_xp', newXp.toString());
     if (user) {
+      localStorage.setItem(`calcmr_mastery_xp_${user.uid}`, newXp.toString());
       try {
         const docRef = doc(db, 'users', user.uid);
         await setDoc(docRef, { currentXp: newXp, updatedAt: serverTimestamp() }, { merge: true });
       } catch (error) {
         console.error("Error updating mastery XP in Firestore", error);
       }
+    } else {
+      localStorage.setItem('calcmr_mastery_xp_offline', newXp.toString());
     }
   };
 
