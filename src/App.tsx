@@ -19,7 +19,7 @@ function CalculatorCore() {
   // Sync initial XP from auth context
   useEffect(() => {
     if (user !== null && !loading) {
-      const xpString = masteryXp.toString();
+      const xpString = masteryXp.toLocaleString();
       setXpInput(xpString);
       const parsedXp = masteryXp;
       if (!isNaN(parsedXp) && parsedXp >= 0) {
@@ -68,8 +68,9 @@ function CalculatorCore() {
     }
   }, [xpInput]);
 
-  const progressPercentage = Math.min(((parseInt(xpInput) || 0) / MAX_XP) * 100, 100).toFixed(2);
-  const isMaxRank = (parseInt(xpInput) || 0) >= MAX_XP;
+  const rawXpInput = parseInt(xpInput.replace(/,/g, ''), 10) || 0;
+  const progressPercentage = Math.min((rawXpInput / MAX_XP) * 100, 100).toFixed(2);
+  const isMaxRank = rawXpInput >= MAX_XP;
 
   return (
     <div className="min-h-screen bg-warframe-bg text-gray-100 font-sans selection:bg-warframe-blue/30 selection:text-white pb-20">
@@ -130,7 +131,14 @@ function CalculatorCore() {
                     <input 
                       type="text" 
                       value={xpInput}
-                      onChange={(e) => setXpInput(e.target.value)}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/\D/g, '');
+                        if (rawValue === '') {
+                          setXpInput('');
+                        } else {
+                          setXpInput(parseInt(rawValue, 10).toLocaleString());
+                        }
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleCalculate()}
                       placeholder="e.g. 150000"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-warframe-blue focus:border-transparent transition-all font-mono"
