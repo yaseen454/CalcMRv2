@@ -5,7 +5,7 @@ import { Slider } from './components/Slider';
 import { RankTable } from './components/Table';
 import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, MAX_XP, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
-import { Server, Crosshair, Package, Cloud } from 'lucide-react';
+import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target } from 'lucide-react';
 import { cn } from './lib/utils';
 
 function CalculatorCore() {
@@ -35,20 +35,6 @@ function CalculatorCore() {
     }
   }, [user, masteryXp, loading]);
 
-  const handleCalculate = useCallback(() => {
-    const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
-    if (!isNaN(parsedXp) && parsedXp >= 0) {
-      if (user && parsedXp !== masteryXp) {
-        updateMasteryXp(parsedXp);
-      }
-      
-      const rank = getCurrentRank(parsedXp);
-      setCurrentRank(rank);
-      const upcoming = getUpcomingRanks(parsedXp, distribution / 100);
-      setProjections(upcoming);
-    }
-  }, [xpInput, user, masteryXp, updateMasteryXp, distribution]);
-
   // Handle auto-calc on slider change if valid XP exists
   useEffect(() => {
     const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
@@ -71,6 +57,7 @@ function CalculatorCore() {
   const rawXpInput = parseInt(xpInput.replace(/,/g, ''), 10) || 0;
   const progressPercentage = Math.min((rawXpInput / MAX_XP) * 100, 100).toFixed(2);
   const isMaxRank = rawXpInput >= MAX_XP;
+
 
   return (
     <div className="min-h-screen bg-warframe-bg text-gray-100 font-sans selection:bg-warframe-blue/30 selection:text-white pb-20">
@@ -139,16 +126,20 @@ function CalculatorCore() {
                           setXpInput(parseInt(rawValue, 10).toLocaleString());
                         }
                       }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleCalculate()}
+                      onBlur={() => {
+                        const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
+                        if (!isNaN(parsedXp) && parsedXp >= 0 && user && parsedXp !== masteryXp) {
+                          updateMasteryXp(parsedXp);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
                       placeholder="e.g. 150000"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-warframe-blue focus:border-transparent transition-all font-mono"
                     />
-                    <button 
-                      onClick={handleCalculate}
-                      className="bg-warframe-blue hover:bg-warframe-blue/80 text-black font-semibold px-6 py-3 rounded-lg transition-colors flex-shrink-0"
-                    >
-                      Calc
-                    </button>
                   </div>
                   {user && masteryXp > 0 && (
                     <p className="text-xs text-gray-500 mt-2 font-mono">
@@ -237,8 +228,75 @@ function CalculatorCore() {
                 transition={{ delay: 0.2 }}
                 className="space-y-4"
               >
-                <div className="flex items-center space-x-2 px-1">
+                <div className="flex items-center space-x-2 px-1 mb-2">
                   <div className="h-4 w-1 bg-warframe-gold rounded-full"></div>
+                  <h3 className="text-lg font-display uppercase tracking-widest text-white/90">Next Rank Overview</h3>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  {/* Next Rank Card */}
+                  <div className="bg-black/30 border border-warframe-gold/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-gold/40 transition-colors">
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-gold/50 group-hover:bg-warframe-gold transition-colors"></div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Next Rank</span>
+                      <ChevronsUp className="h-4 w-4 text-warframe-gold" />
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                      MR {projections[0].rankData.rankNumber}
+                    </div>
+                    <div className="text-xs text-warframe-gold mt-1 truncate" title={projections[0].rankData.rankName}>
+                      {projections[0].rankData.rankName}
+                    </div>
+                  </div>
+
+                  {/* Weapons */}
+                  <div className="bg-black/30 border border-warframe-blue/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-blue/40 transition-colors">
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-blue/50 group-hover:bg-warframe-blue transition-colors"></div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Weapons</span>
+                      <Crosshair className="h-4 w-4 text-warframe-blue" />
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                      {projections[0].weapons}
+                    </div>
+                    <div className="text-xs text-warframe-blue mt-1">
+                      Required
+                    </div>
+                  </div>
+
+                  {/* Deployables */}
+                  <div className="bg-black/30 border border-indigo-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-indigo-400/40 transition-colors">
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Deployables</span>
+                      <Rocket className="h-4 w-4 text-indigo-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                      {projections[0].deployables}
+                    </div>
+                    <div className="text-xs text-indigo-400 mt-1">
+                      Required
+                    </div>
+                  </div>
+
+                  {/* Overshoot */}
+                  <div className="bg-black/30 border border-emerald-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/40 transition-colors">
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400/50 group-hover:bg-emerald-400 transition-colors"></div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Overshoot</span>
+                      <Target className="h-4 w-4 text-emerald-400" />
+                    </div>
+                    <div className="text-xl sm:text-2xl font-bold text-white tabular-nums tracking-tight">
+                       {projections[0].xpDifference > 0 ? `+${projections[0].xpDifference.toLocaleString()}` : '0'}
+                    </div>
+                    <div className="text-xs text-emerald-400 mt-1">
+                      Wasted XP
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 px-1 mb-2 pt-2">
+                  <div className="h-4 w-1 bg-warframe-blue rounded-full"></div>
                   <h3 className="text-lg font-display uppercase tracking-widest text-white/90">Path to Mastery</h3>
                 </div>
                 <RankTable projections={projections} currentXp={parseInt(xpInput.replace(/,/g, ''), 10) || 0} />
