@@ -13,10 +13,29 @@ const preconfiguredConfig = {
   measurementId: "G-J1DE8VGTED"
 };
 
+// Dynamically determine the best authDomain to avoid cross-origin cookie blocking
+const getAuthDomain = () => {
+  if (typeof window === 'undefined') {
+    return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || preconfiguredConfig.authDomain;
+  }
+  const hostname = window.location.hostname;
+  // Use default Firebase authentication domain on local host or inside the AI Studio preview environment
+  if (
+    hostname === 'localhost' || 
+    hostname === '127.0.0.1' || 
+    hostname.includes('run.app') || 
+    hostname.includes('googleusercontent.com')
+  ) {
+    return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || preconfiguredConfig.authDomain;
+  }
+  // Use the current custom domain (e.g. Netlify) with the matching proxy/rewrite set up in public/_redirects
+  return hostname;
+};
+
 // Dynamically use client environment variables if present (e.g. on Netlify), falling back to preconfigured settings
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || preconfiguredConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || preconfiguredConfig.authDomain,
+  authDomain: getAuthDomain(),
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || preconfiguredConfig.projectId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || preconfiguredConfig.storageBucket,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || preconfiguredConfig.messagingSenderId,

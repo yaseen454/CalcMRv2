@@ -1,0 +1,2 @@
+# Proxy Firebase Auth requests to prevent third-party cookie blocks on custom domains
+__/auth/* https://calcmr-ca8a2.firebaseapp.com/__/auth/:splat 200

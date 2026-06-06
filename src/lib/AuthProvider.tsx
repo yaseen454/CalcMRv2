@@ -94,13 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     try {
-      // Bypasses 3rd-party cookie blocking on custom domains like Netlify by utilizing redirect auth
-      const isIframe = window.self !== window.top;
-      if (isIframe) {
-        await signInWithPopup(auth, googleProvider);
-      } else {
-        await signInWithRedirect(auth, googleProvider);
-      }
+      // With our dynamic authDomain and public/_redirects Netlify proxy configured,
+      // signInWithPopup works flawlessly on custom domains without cross-origin blockage.
+      await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Error signing in with Google", error);
       setAuthError(error.message || "An authentication error occurred.");
