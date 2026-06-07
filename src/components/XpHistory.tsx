@@ -78,7 +78,7 @@ export function XpHistory() {
           <button
             type="submit"
             disabled={isSaving}
-            className="bg-warframe-blue hover:bg-warframe-blue/80 text-black text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 font-display uppercase tracking-wider shrink-0"
+            className="bg-warframe-blue hover:bg-warframe-blue/80 text-black text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 font-display uppercase tracking-wider shrink-0 cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             Save Milestone
@@ -93,7 +93,7 @@ export function XpHistory() {
           {!user && hasItems && (
             <button
               onClick={clearXpHistory}
-              className="text-[10px] text-red-400/80 hover:text-red-400 flex items-center gap-1 transition-colors uppercase"
+              className="text-[10px] text-red-400/80 hover:text-red-400 flex items-center gap-1 transition-colors uppercase cursor-pointer"
               title="Clear offline cache"
             >
               <Trash2 className="h-3 w-3" />
@@ -155,7 +155,7 @@ export function XpHistory() {
                     {!user ? (
                       <button
                         onClick={() => deleteHistoryEntry(item.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all self-start"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all self-start cursor-pointer"
                         title="Delete milestone log"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

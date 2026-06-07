@@ -37,7 +37,7 @@ export function Navigation() {
                 )}
                 <button 
                   onClick={logout}
-                  className="flex items-center space-x-2 text-sm text-red-400 hover:text-red-300 transition-colors bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-md"
+                  className="flex items-center space-x-2 text-sm text-red-400 hover:text-red-300 transition-colors bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-md cursor-pointer"
                 >
                   <LogOut className="h-4 w-4" />
                   <span className="hidden sm:inline-block">Sign Out</span>
@@ -47,7 +47,7 @@ export function Navigation() {
               <div className="flex flex-col items-end relative">
                 <button 
                   onClick={signInWithGoogle}
-                  className="flex items-center space-x-2 text-sm text-warframe-blue hover:text-warframe-blue/80 transition-colors bg-warframe-blue/10 hover:bg-warframe-blue/20 px-4 py-2 rounded-md font-medium"
+                  className="flex items-center space-x-2 text-sm text-warframe-blue hover:text-warframe-blue/80 transition-colors bg-warframe-blue/10 hover:bg-warframe-blue/20 px-4 py-2 rounded-md font-medium cursor-pointer"
                 >
                   <LogIn className="h-4 w-4" />
                   <span>Sign in with Google</span>

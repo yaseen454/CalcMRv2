@@ -238,14 +238,14 @@ function CalculatorCore() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     <button
                       onClick={handleOptimize}
-                      className="bg-warframe-blue hover:bg-warframe-blue/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs text-center font-display uppercase tracking-wider w-full"
+                      className="bg-warframe-blue hover:bg-warframe-blue/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs text-center font-display uppercase tracking-wider w-full cursor-pointer"
                       title="Optimize distribution based on the chosen criteria for your next rank only"
                     >
                       Optimize Next Rank
                     </button>
                     <button
                       onClick={handleOptimizeAll}
-                      className="bg-warframe-gold hover:bg-warframe-gold/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs text-center font-display uppercase tracking-wider w-full"
+                      className="bg-warframe-gold hover:bg-warframe-gold/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs text-center font-display uppercase tracking-wider w-full cursor-pointer"
                       title="Optimize distribution to minimize average milestones across all upcoming ranks simultaneously"
                     >
                       Optimize All Ranks
