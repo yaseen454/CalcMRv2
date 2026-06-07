@@ -6,7 +6,7 @@ import { RankTable } from './components/Table';
 import { XpHistory } from './components/XpHistory';
 import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, optimizeAllRanks, OptimizationMethod, MAX_XP, MAX_RANK, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
-import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target } from 'lucide-react';
+import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target, HelpCircle, CheckCircle2, Info } from 'lucide-react';
 import { cn } from './lib/utils';
 
 function CalculatorCore() {
@@ -18,6 +18,7 @@ function CalculatorCore() {
   const [projections, setProjections] = useState<UpcomingRankProjection[]>([]);
   const [optimizationMethod, setOptimizationMethod] = useState<OptimizationMethod>('overshoot');
   const [activeOverview, setActiveOverview] = useState<'next' | 'all' | null>(null);
+  const [activeTab, setActiveTab] = useState<'calculator' | 'guide'>('calculator');
 
   // Sync initial XP from auth context
   useEffect(() => {
@@ -100,7 +101,160 @@ function CalculatorCore() {
           </p>
         </m.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Tabs Control */}
+        <div className="flex justify-center border-b border-white/5 mb-8 max-w-sm mx-auto">
+          <nav className="flex space-x-8" aria-label="Tabs">
+            <button
+              onClick={() => setActiveTab('calculator')}
+              className={cn(
+                "pb-3.5 px-1 border-b-2 font-display text-xs uppercase tracking-widest font-semibold transition-all cursor-pointer flex items-center space-x-2",
+                activeTab === 'calculator'
+                  ? "border-warframe-gold text-warframe-gold"
+                  : "border-transparent text-gray-500 hover:text-gray-300"
+              )}
+            >
+              <Server className="h-4 w-4" />
+              <span>Calculator</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('guide')}
+              className={cn(
+                "pb-3.5 px-1 border-b-2 font-display text-xs uppercase tracking-widest font-semibold transition-all cursor-pointer flex items-center space-x-2",
+                activeTab === 'guide'
+                  ? "border-warframe-blue text-warframe-blue"
+                  : "border-transparent text-gray-400 hover:text-gray-200"
+              )}
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span>How To Use</span>
+            </button>
+          </nav>
+        </div>
+
+        {activeTab === 'guide' ? (
+          <m.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-black/30 border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-md shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-warframe-gold via-warframe-blue to-transparent"></div>
+            
+            {/* Guide explanations column */}
+            <div className="lg:col-span-7 space-y-6 text-left">
+              <div>
+                <span className="text-xs font-mono text-warframe-gold uppercase tracking-widest font-semibold bg-warframe-gold/10 px-3 py-1 rounded-full border border-warframe-gold/20">
+                  Instructional Guide
+                </span>
+                <h2 className="text-2xl md:text-3xl font-display font-medium text-white/90 uppercase tracking-wide mt-3">
+                  Setup in <span className="text-warframe-blue font-semibold">One Single Step</span>
+                </h2>
+                <p className="text-gray-400 mt-2 leading-relaxed text-sm md:text-base">
+                  All you need to do is enter your current in-game Mastery progress. Follow the quick guide below to extract your stats and use our advanced optimizer tools.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
+                  <div className="h-8 w-8 rounded-lg bg-warframe-blue/10 flex items-center justify-center shrink-0 border border-warframe-blue/20">
+                    <span className="text-warframe-blue font-bold font-mono text-sm">1</span>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-semibold text-white/90 text-sm uppercase tracking-wider">Locate profile stats in-game</h4>
+                    <p className="text-gray-400 text-xs md:text-sm mt-1 leading-relaxed">
+                      In-game, open the main menu and look at the top-left of your screen, or click on your profile avatar. It displays your current emblem badge, Mastery Rank level, progress meters, and stats.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
+                  <div className="h-8 w-8 rounded-lg bg-warframe-gold/10 flex items-center justify-center shrink-0 border border-warframe-gold/20">
+                    <span className="text-warframe-gold font-bold font-mono text-sm">2</span>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-semibold text-white/90 text-sm uppercase tracking-wider">Get your total accumulated Mastery XP</h4>
+                    <p className="text-gray-400 text-xs md:text-sm mt-1 leading-relaxed">
+                      Note the numeric total XP counter (e.g., <span className="text-white font-mono font-bold">1,551,474</span> as illustrated in the profile status mockup).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-400/10 flex items-center justify-center shrink-0 border border-emerald-400/20">
+                    <span className="text-emerald-400 font-bold font-mono text-sm">3</span>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-semibold text-white/90 text-sm uppercase tracking-wider">Input & Plan Milestone path</h4>
+                    <p className="text-gray-400 text-xs md:text-sm mt-1 leading-relaxed">
+                      Enter that exact XP count directly into the <strong className="text-warframe-blue font-semibold">Mastery XP</strong> field under "Current Status" inside the dashboard tab.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => setActiveTab('calculator')}
+                  className="bg-[#1a2128] hover:bg-[#202931] border border-white/10 text-white font-semibold px-6 py-3 rounded-lg transition-all text-xs font-display uppercase tracking-widest cursor-pointer shadow-lg inline-flex items-center gap-2"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-warframe-blue" />
+                  <span>Go to Calculator</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Replicated Image Artifact via exact HTML/CSS visual render */}
+            <div className="lg:col-span-5 flex flex-col justify-center items-center">
+              <div className="w-full max-w-sm bg-[#0a0e14]/95 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl space-y-4">
+                <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-white/40"></div>
+                <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-white/40"></div>
+                <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-white/40"></div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-white/40"></div>
+                
+                {/* Header text */}
+                <div className="flex items-center space-x-2 justify-center py-1 border-b border-white/[0.05]">
+                  <span className="text-warframe-blue text-xs">◆</span>
+                  <span className="text-[10px] text-gray-400 tracking-[0.2em] font-medium font-sans uppercase">Mastery Rank</span>
+                  <span className="text-warframe-blue text-xs">◆</span>
+                </div>
+
+                {/* Badge layout replicating user image exactly */}
+                <div className="flex flex-col items-center py-5 bg-[#11161a] border border-white/[0.03] rounded-xl relative shadow-inner">
+                  {/* Lotus Frame Shield outline */}
+                  <div className="relative w-28 h-28 border border-white/10 rounded-lg bg-gradient-to-b from-[#1b2228] to-[#12171c] flex flex-col items-center justify-center p-2 mb-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]">
+                    <svg className="w-16 h-16 text-warframe-gold drop-shadow-[0_2px_8px_rgba(230,175,46,0.3)]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L4 5v11c0 5.25 4.75 9.75 8 11 3.25-1.25 8-5.75 8-11V5l-8-3zm0 18a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5-5.5s-1.5 1.5-4.5 1.5-4.5-1.5-4.5-1.5l.5-1.5s1 1 4 1 4-1 4-1l.5 1.5zM12 11.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />
+                    </svg>
+                    <div className="absolute bottom-1.5 font-display font-extrabold text-3xl tracking-tighter text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] select-none">
+                      24
+                    </div>
+                  </div>
+
+                  <h3 className="text-xs font-semibold tracking-[0.25em] text-gray-300 font-display uppercase">Gold Dragon</h3>
+                  <p className="text-sm font-bold font-mono text-white tracking-wide mt-1">1,551,474</p>
+                  
+                  {/* Progress bar visual bar and filled state */}
+                  <div className="w-[85%] mt-3 px-2">
+                    <div className="w-full bg-[#1e252d] h-[6px] rounded-full overflow-hidden p-[1px] border border-white/5">
+                      <div className="h-full bg-white rounded-full w-[94%]"></div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] font-semibold text-gray-400 mt-2 uppercase tracking-widest font-display">
+                    Next Rank: <span className="text-white font-bold">Sage</span> in <span className="text-warframe-blue font-bold">11,026</span>
+                  </p>
+                </div>
+                
+                <div className="text-center">
+                  <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider flex items-center justify-center gap-1">
+                    <Info className="h-3 w-3 text-warframe-gold" /> Replicated In-Game Profile Reference
+                  </p>
+                </div>
+              </div>
+            </div>
+          </m.div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Left Column: Controls */}
           <div className="lg:col-span-4 space-y-6">
@@ -457,6 +611,7 @@ function CalculatorCore() {
           </div>
 
         </div>
+        )}
       </main>
     </div>
   );
