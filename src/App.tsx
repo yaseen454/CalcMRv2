@@ -4,7 +4,7 @@ import { Navigation } from './components/Navigation';
 import { Slider } from './components/Slider';
 import { RankTable } from './components/Table';
 import { XpHistory } from './components/XpHistory';
-import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, optimizeAllRanks, MAX_XP, MAX_RANK, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
+import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, optimizeAllRanks, OptimizationMethod, MAX_XP, MAX_RANK, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
 import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target } from 'lucide-react';
 import { cn } from './lib/utils';
@@ -16,6 +16,8 @@ function CalculatorCore() {
   const [distribution, setDistribution] = useState<number>(50); // 50% Weapons vs Deployables
   const [currentRank, setCurrentRank] = useState(getCurrentRank(0));
   const [projections, setProjections] = useState<UpcomingRankProjection[]>([]);
+  const [optimizationMethod, setOptimizationMethod] = useState<OptimizationMethod>('overshoot');
+  const [activeOverview, setActiveOverview] = useState<'next' | 'all' | null>(null);
 
   // Sync initial XP from auth context
   useEffect(() => {
@@ -34,11 +36,12 @@ function CalculatorCore() {
         setXpInput('');
         setProjections([]);
         setCurrentRank(getCurrentRank(0));
+        setActiveOverview(null);
       }
     }
   }, [user, masteryXp, loading]);
 
-  // Handle auto-calc on slider-  change if valid XP exists
+  // Handle auto-calc on sliderchange if valid XP exists
   useEffect(() => {
     const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
     if (!isNaN(parsedXp) && parsedXp >= 0) {
@@ -46,24 +49,28 @@ function CalculatorCore() {
       setCurrentRank(rank);
       const upcoming = getUpcomingRanks(parsedXp, distribution / 100);
       setProjections(upcoming);
+    } else {
+      setActiveOverview(null);
     }
   }, [distribution, xpInput]);
 
   const handleOptimize = useCallback(() => {
     const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
     if (!isNaN(parsedXp) && parsedXp >= 0) {
-      const bestDist = optimizeDistribution(parsedXp);
+      const bestDist = optimizeDistribution(parsedXp, optimizationMethod);
       setDistribution(bestDist);
+      setActiveOverview('next');
     }
-  }, [xpInput]);
+  }, [xpInput, optimizationMethod]);
 
   const handleOptimizeAll = useCallback(() => {
     const parsedXp = parseInt(xpInput.replace(/,/g, ''), 10);
     if (!isNaN(parsedXp) && parsedXp >= 0) {
-      const bestDist = optimizeAllRanks(parsedXp);
+      const bestDist = optimizeAllRanks(parsedXp, optimizationMethod);
       setDistribution(bestDist);
+      setActiveOverview('all');
     }
-  }, [xpInput]);
+  }, [xpInput, optimizationMethod]);
 
   const rawXpInput = parseInt(xpInput.replace(/,/g, ''), 10) || 0;
   const progressPercentage = Math.min((rawXpInput / MAX_XP) * 100, 100).toFixed(2);
@@ -211,18 +218,35 @@ function CalculatorCore() {
                     <span>Deployables</span>
                     <span>Weapons</span>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {/* Optimization Strategy Dropdown - Shared across both operations */}
+                  <div className="bg-black/30 border border-white/5 rounded-lg p-3.5 mb-4 flex flex-col space-y-2">
+                    <label className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold flex items-center gap-1.5">
+                      <Target className="h-3.5 w-3.5 text-warframe-blue" />
+                      Optimization Method
+                    </label>
+                    <select
+                      value={optimizationMethod}
+                      onChange={(e) => setOptimizationMethod(e.target.value as OptimizationMethod)}
+                      className="bg-[#0b0e14] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-warframe-blue/50 cursor-pointer w-full hover:border-white/20 transition-colors"
+                    >
+                      <option value="overshoot" className="bg-[#0b0e14]">Overshoot (Min Wasted XP)</option>
+                      <option value="equal" className="bg-[#0b0e14]">Equal-Items (Weps = Deps)</option>
+                      <option value="least" className="bg-[#0b0e14]">Least-Items (Min Farming)</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     <button
                       onClick={handleOptimize}
-                      className="bg-warframe-blue hover:bg-warframe-blue/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs flex-1 text-center font-display uppercase tracking-wider"
-                      title="Optimize distribution for the least amount of overshoot on your next rank"
+                      className="bg-warframe-blue hover:bg-warframe-blue/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs text-center font-display uppercase tracking-wider w-full"
+                      title="Optimize distribution based on the chosen criteria for your next rank only"
                     >
                       Optimize Next Rank
                     </button>
                     <button
                       onClick={handleOptimizeAll}
-                      className="bg-warframe-gold hover:bg-warframe-gold/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs flex-1 text-center font-display uppercase tracking-wider"
-                      title="Optimize distribution to minimize average overshoot across all upcoming ranks"
+                      className="bg-warframe-gold hover:bg-warframe-gold/80 text-black font-semibold px-4 py-2.5 rounded-lg transition-colors text-xs text-center font-display uppercase tracking-wider w-full"
+                      title="Optimize distribution to minimize average milestones across all upcoming ranks simultaneously"
                     >
                       Optimize All Ranks
                     </button>
@@ -250,143 +274,173 @@ function CalculatorCore() {
                 transition={{ delay: 0.2 }}
                 className="space-y-4"
               >
-                <div className="flex items-center space-x-2 px-1 mb-2">
-                  <div className="h-4 w-1 bg-warframe-gold rounded-full"></div>
-                  <h3 className="text-lg font-display uppercase tracking-widest text-white/90">Next Rank Overview</h3>
-                </div>
+                {activeOverview === 'next' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 px-1 mb-2">
+                      <div className="h-4 w-1 bg-warframe-gold rounded-full"></div>
+                      <h3 className="text-lg font-display uppercase tracking-widest text-white/90">Next Rank Overview</h3>
+                    </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  {/* Next Rank Card */}
-                  <div className="bg-black/30 border border-warframe-gold/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-gold/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-gold/50 group-hover:bg-warframe-gold transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Next Rank</span>
-                      <ChevronsUp className="h-4 w-4 text-warframe-gold" />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      {/* Next Rank Card */}
+                      <div className="bg-black/30 border border-warframe-gold/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-gold/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-gold/50 group-hover:bg-warframe-gold transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Next Rank</span>
+                          <ChevronsUp className="h-4 w-4 text-warframe-gold" />
+                        </div>
+                        <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                          MR {projections[0].rankData.rankNumber}
+                        </div>
+                        <div className="text-xs text-warframe-gold mt-1 truncate" title={projections[0].rankData.rankName}>
+                          {projections[0].rankData.rankName}
+                        </div>
+                      </div>
+
+                      {/* Weapons */}
+                      <div className="bg-black/30 border border-warframe-blue/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-blue/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-blue/50 group-hover:bg-warframe-blue transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Weapons</span>
+                          <Crosshair className="h-4 w-4 text-warframe-blue" />
+                        </div>
+                        <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                          {projections[0].weapons}
+                        </div>
+                        <div className="text-xs text-warframe-blue mt-1">
+                          Required
+                        </div>
+                      </div>
+
+                      {/* Deployables */}
+                      <div className="bg-black/30 border border-indigo-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-indigo-400/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Deployables</span>
+                          <Rocket className="h-4 w-4 text-indigo-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                          {projections[0].deployables}
+                        </div>
+                        <div className="text-xs text-indigo-400 mt-1">
+                          Required
+                        </div>
+                      </div>
+
+                      {/* Overshoot */}
+                      <div className="bg-black/30 border border-emerald-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400/50 group-hover:bg-emerald-400 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Overshoot</span>
+                          <Target className="h-4 w-4 text-emerald-400" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-bold text-white tabular-nums tracking-tight">
+                           {projections[0].xpDifference > 0 ? `+${projections[0].xpDifference.toLocaleString()}` : '0'}
+                        </div>
+                        <div className="text-xs text-emerald-400 mt-1">
+                          Wasted XP
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
-                      MR {projections[0].rankData.rankNumber}
-                    </div>
-                    <div className="text-xs text-warframe-gold mt-1 truncate" title={projections[0].rankData.rankName}>
-                      {projections[0].rankData.rankName}
+
+                    <div className="text-sm text-gray-400 leading-relaxed bg-white/[0.01] border border-white/5 p-4 rounded-lg mb-6">
+                      For your next rank <span className="text-warframe-gold font-medium">MR {projections[0].rankData.rankNumber} ({projections[0].rankData.rankName})</span>, you need exactly <span className="text-warframe-blue font-semibold">{projections[0].weapons} weapons</span> and <span className="text-indigo-400 font-semibold">{projections[0].deployables} deployables</span>. 
+                      {optimizationMethod === 'overshoot' && (
+                        <span> This is optimized using the <span className="text-emerald-400 font-medium">Overshoot Method</span> to ensure you waste the minimum possible extra Mastery XP upon leveling up.</span>
+                      )}
+                      {optimizationMethod === 'equal' && (
+                        <span> This is optimized using the <span className="text-emerald-400 font-medium font-mono">Equal-Items Method</span>, focusing on balancing the numeric item workloads as evenly as possible (<span className="text-white">weps ≈ deps</span>).</span>
+                      )}
+                      {optimizationMethod === 'least' && (
+                        <span> This is optimized using the <span className="text-emerald-400 font-medium">Least-Items Method</span>, ensuring you have to farm and level up the overall minimum total count of separate items.</span>
+                      )}
                     </div>
                   </div>
+                )}
 
-                  {/* Weapons */}
-                  <div className="bg-black/30 border border-warframe-blue/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-blue/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-blue/50 group-hover:bg-warframe-blue transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Weapons</span>
-                      <Crosshair className="h-4 w-4 text-warframe-blue" />
+                {activeOverview === 'all' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 px-1 mb-2 pt-2">
+                      <div className="h-4 w-1 bg-warframe-blue rounded-full"></div>
+                      <h3 className="text-lg font-display uppercase tracking-widest text-white/90">All Ranks Overview</h3>
                     </div>
-                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
-                      {projections[0].weapons}
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      {/* Goal Card */}
+                      <div className="bg-black/30 border border-warframe-gold/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-gold/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-gold/50 group-hover:bg-warframe-gold transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Ultimate Goal</span>
+                          <ChevronsUp className="h-4 w-4 text-warframe-gold" />
+                        </div>
+                        <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                          MR {MAX_RANK}
+                        </div>
+                        <div className="text-xs text-warframe-gold mt-1 truncate">
+                          Legendary 6
+                        </div>
+                      </div>
+
+                      {/* Total Weapons */}
+                      <div className="bg-black/30 border border-warframe-blue/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-blue/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-blue/50 group-hover:bg-warframe-blue transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Weapons</span>
+                          <Crosshair className="h-4 w-4 text-warframe-blue" />
+                        </div>
+                        <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                          {projections[projections.length - 1]?.weapons ?? 0}
+                        </div>
+                        <div className="text-xs text-warframe-blue mt-1 font-mono">
+                          Needed
+                        </div>
+                      </div>
+
+                      {/* Total Deployables */}
+                      <div className="bg-black/30 border border-indigo-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-indigo-400/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Deployables</span>
+                          <Rocket className="h-4 w-4 text-indigo-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
+                          {projections[projections.length - 1]?.deployables ?? 0}
+                        </div>
+                        <div className="text-xs text-indigo-400 mt-1 font-mono">
+                          Required
+                        </div>
+                      </div>
+
+                      {/* Avg Overshoot */}
+                      <div className="bg-black/30 border border-emerald-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/40 transition-colors">
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400/50 group-hover:bg-emerald-400 transition-colors"></div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Avg Overshoot</span>
+                          <Target className="h-4 w-4 text-emerald-400" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-bold text-white tabular-nums tracking-tight">
+                           +{Math.round(projections.reduce((sum, p) => sum + p.xpDifference, 0) / projections.length).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-emerald-400 mt-1 font-mono">
+                          Wasted XP
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-warframe-blue mt-1">
-                      Required
+
+                    <div className="text-sm text-gray-400 leading-relaxed bg-white/[0.02] border border-white/5 p-4 rounded-lg mb-6">
+                      Based on your preferred distribution, upgrading to <span className="text-warframe-gold font-medium">Legendary 6</span> requires a total of <span className="text-warframe-blue font-semibold">{projections[projections.length - 1]?.weapons ?? 0} weapons</span> and <span className="text-indigo-400 font-semibold">{projections[projections.length - 1]?.deployables ?? 0} deployables</span>. Across all <span className="text-white font-medium">{projections.length}</span> remaining mastery ranks, this distribution results in an average overshoot of <span className="text-emerald-400 font-bold">{(projections.reduce((sum, p) => sum + p.xpDifference, 0) / projections.length).toLocaleString(undefined, {maximumFractionDigits: 0})} XP</span>. 
+                      {optimizationMethod === 'overshoot' && (
+                        <span> The active multi-rank path is configured with the <span className="text-warframe-gold font-medium">Overshoot Criterion</span>, meaning it aims to suppress the total wasted XP accumulated across all visual milestone increments.</span>
+                      )}
+                      {optimizationMethod === 'equal' && (
+                        <span> The active multi-rank path focuses on the <span className="text-warframe-gold font-medium font-mono">Equal-Items Criterion</span>, meaning it seeks a balanced visual milestone roadmap minimizing disparity between cumulative weapons and deployables.</span>
+                      )}
+                      {optimizationMethod === 'least' && (
+                        <span> The active multi-rank path is driven by the <span className="text-warframe-gold font-medium">Least-Items Criterion</span>, optimizing to reduce the overall count of total legendary items you must grind from start to finish.</span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Deployables */}
-                  <div className="bg-black/30 border border-indigo-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-indigo-400/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Deployables</span>
-                      <Rocket className="h-4 w-4 text-indigo-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
-                      {projections[0].deployables}
-                    </div>
-                    <div className="text-xs text-indigo-400 mt-1">
-                      Required
-                    </div>
-                  </div>
-
-                  {/* Overshoot */}
-                  <div className="bg-black/30 border border-emerald-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400/50 group-hover:bg-emerald-400 transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Overshoot</span>
-                      <Target className="h-4 w-4 text-emerald-400" />
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-white tabular-nums tracking-tight">
-                       {projections[0].xpDifference > 0 ? `+${projections[0].xpDifference.toLocaleString()}` : '0'}
-                    </div>
-                    <div className="text-xs text-emerald-400 mt-1">
-                      Wasted XP
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2 px-1 mb-2 pt-2">
-                  <div className="h-4 w-1 bg-warframe-blue rounded-full"></div>
-                  <h3 className="text-lg font-display uppercase tracking-widest text-white/90">All Ranks Overview</h3>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  {/* Goal Card */}
-                  <div className="bg-black/30 border border-warframe-gold/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-gold/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-gold/50 group-hover:bg-warframe-gold transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Ultimate Goal</span>
-                      <ChevronsUp className="h-4 w-4 text-warframe-gold" />
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
-                      MR {MAX_RANK}
-                    </div>
-                    <div className="text-xs text-warframe-gold mt-1 truncate">
-                      Legendary 6
-                    </div>
-                  </div>
-
-                  {/* Total Weapons */}
-                  <div className="bg-black/30 border border-warframe-blue/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-warframe-blue/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-warframe-blue/50 group-hover:bg-warframe-blue transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Weapons</span>
-                      <Crosshair className="h-4 w-4 text-warframe-blue" />
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
-                      {projections[projections.length - 1]?.weapons ?? 0}
-                    </div>
-                    <div className="text-xs text-warframe-blue mt-1 font-mono">
-                      Needed
-                    </div>
-                  </div>
-
-                  {/* Total Deployables */}
-                  <div className="bg-black/30 border border-indigo-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-indigo-400/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Deployables</span>
-                      <Rocket className="h-4 w-4 text-indigo-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums tracking-tight">
-                      {projections[projections.length - 1]?.deployables ?? 0}
-                    </div>
-                    <div className="text-xs text-indigo-400 mt-1 font-mono">
-                      Required
-                    </div>
-                  </div>
-
-                  {/* Avg Overshoot */}
-                  <div className="bg-black/30 border border-emerald-400/20 rounded-lg p-4 shadow-lg backdrop-blur-sm relative overflow-hidden group hover:border-emerald-400/40 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400/50 group-hover:bg-emerald-400 transition-colors"></div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Avg Overshoot</span>
-                      <Target className="h-4 w-4 text-emerald-400" />
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-white tabular-nums tracking-tight">
-                       +{Math.round(projections.reduce((sum, p) => sum + p.xpDifference, 0) / projections.length).toLocaleString()}
-                    </div>
-                    <div className="text-xs text-emerald-400 mt-1 font-mono">
-                      Wasted XP
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-sm text-gray-400 leading-relaxed bg-white/[0.02] border border-white/5 p-4 rounded-lg mb-6">
-                  Based on your preferred distribution, upgrading to <span className="text-warframe-gold font-medium">Legendary 6</span> requires a total of <span className="text-warframe-blue font-semibold">{projections[projections.length - 1]?.weapons ?? 0} weapons</span> and <span className="text-indigo-400 font-semibold">{projections[projections.length - 1]?.deployables ?? 0} deployables</span>. Across all <span className="text-white font-medium">{projections.length}</span> remaining mastery ranks, this distribution results in an average overshoot of <span className="text-emerald-400 font-bold">{(projections.reduce((sum, p) => sum + p.xpDifference, 0) / projections.length).toLocaleString(undefined, {maximumFractionDigits: 0})} XP</span>. Click &ldquo;Optimize All Ranks&rdquo; to find the visual threshold where the overall wasted XP is mathematically minimized for all milestones.
-                </div>
+                )}
 
                 <div className="flex items-center space-x-2 px-1 mb-2 pt-2">
                   <div className="h-4 w-1 bg-warframe-blue rounded-full"></div>

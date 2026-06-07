@@ -122,60 +122,164 @@ export function calculateOptimalItems(
   };
 }
 
-export function optimizeDistribution(currentXp: number): number {
+export type OptimizationMethod = 'overshoot' | 'equal' | 'least';
+
+export function optimizeDistribution(currentXp: number, method: OptimizationMethod = 'overshoot'): number {
   const currentRank = getCurrentRank(currentXp);
   const nextRank = currentRank.rankNumber + 1;
   if (nextRank > MAX_RANK) return 50;
 
   const data = getRankData(nextRank);
   let bestDist = 50;
-  let minOvershoot = Infinity;
 
-  for (let dist = 0; dist <= 100; dist += 1) {
-    const optimal = calculateOptimalItems(data.totalXpRequired, currentXp, dist / 100);
-    const overshoot = optimal.totalXpAchieved - (data.totalXpRequired - currentXp);
-    
-    if (overshoot >= 0 && overshoot < minOvershoot) {
-      minOvershoot = overshoot;
-      bestDist = dist;
+  if (method === 'overshoot') {
+    let minOvershoot = Infinity;
+    for (let dist = 0; dist <= 100; dist += 1) {
+      const optimal = calculateOptimalItems(data.totalXpRequired, currentXp, dist / 100);
+      const overshoot = optimal.totalXpAchieved - (data.totalXpRequired - currentXp);
+      
+      if (overshoot >= 0 && overshoot < minOvershoot) {
+        minOvershoot = overshoot;
+        bestDist = dist;
+      }
+    }
+  } else if (method === 'equal') {
+    let minDiff = Infinity;
+    let minOvershootForMinDiff = Infinity;
+    for (let dist = 0; dist <= 100; dist += 1) {
+      const optimal = calculateOptimalItems(data.totalXpRequired, currentXp, dist / 100);
+      const overshoot = optimal.totalXpAchieved - (data.totalXpRequired - currentXp);
+      
+      if (overshoot >= 0) {
+        const diff = Math.abs(optimal.weapons - optimal.deployables);
+        if (diff < minDiff) {
+          minDiff = diff;
+          minOvershootForMinDiff = overshoot;
+          bestDist = dist;
+        } else if (diff === minDiff) {
+          if (overshoot < minOvershootForMinDiff) {
+            minOvershootForMinDiff = overshoot;
+            bestDist = dist;
+          }
+        }
+      }
+    }
+  } else if (method === 'least') {
+    let minTotalItems = Infinity;
+    let minDiffForMinItems = Infinity;
+    let minOvershootForMinItems = Infinity;
+    for (let dist = 0; dist <= 100; dist += 1) {
+      const optimal = calculateOptimalItems(data.totalXpRequired, currentXp, dist / 100);
+      const overshoot = optimal.totalXpAchieved - (data.totalXpRequired - currentXp);
+      
+      if (overshoot >= 0) {
+        const totalItems = optimal.weapons + optimal.deployables;
+        const diff = Math.abs(optimal.weapons - optimal.deployables);
+        if (totalItems < minTotalItems) {
+          minTotalItems = totalItems;
+          minDiffForMinItems = diff;
+          minOvershootForMinItems = overshoot;
+          bestDist = dist;
+        } else if (totalItems === minTotalItems) {
+          if (diff < minDiffForMinItems) {
+            minDiffForMinItems = diff;
+            minOvershootForMinItems = overshoot;
+            bestDist = dist;
+          } else if (diff === minDiffForMinItems) {
+            if (overshoot < minOvershootForMinItems) {
+              minOvershootForMinItems = overshoot;
+              bestDist = dist;
+            }
+          }
+        }
+      }
     }
   }
 
   return bestDist;
 }
 
-export function optimizeAllRanks(currentXp: number): number {
+export function optimizeAllRanks(currentXp: number, method: OptimizationMethod = 'overshoot'): number {
   const currentRank = getCurrentRank(currentXp);
   if (currentRank.rankNumber >= MAX_RANK) return 50;
 
   let bestDist = 50;
-  let minTotalOvershoot = Infinity;
   let maxCompletedRanks = -1;
+  let bestOvershoot = Infinity;
+  let bestItems = Infinity;
+  let bestDiff = Infinity;
 
   for (let dist = 0; dist <= 100; dist += 1) {
     const projections = getUpcomingRanks(currentXp, dist / 100);
     if (projections.length === 0) continue;
 
-    let totalOvershoot = 0;
     let completedRanksCount = 0;
+    let totalOvershoot = 0;
+    let totalItemDiff = 0;
+    let totalItems = 0;
 
     for (const p of projections) {
-      if (p.xpDifference >= 0) {
+      const overshootVal = p.xpDifference;
+      if (overshootVal >= 0) {
         completedRanksCount++;
-        totalOvershoot += p.xpDifference;
+        totalOvershoot += overshootVal;
       } else {
-        // Deficit counts as a large custom penalty to discourage under-leveling
-        totalOvershoot += Math.abs(p.xpDifference) * 10;
+        totalOvershoot += Math.abs(overshootVal) * 10;
       }
+      totalItemDiff += Math.abs(p.weapons - p.deployables);
+      totalItems += (p.weapons + p.deployables);
     }
 
     if (completedRanksCount > maxCompletedRanks) {
       maxCompletedRanks = completedRanksCount;
-      minTotalOvershoot = totalOvershoot;
+      bestOvershoot = totalOvershoot;
+      bestItems = totalItems;
+      bestDiff = totalItemDiff;
       bestDist = dist;
     } else if (completedRanksCount === maxCompletedRanks) {
-      if (totalOvershoot < minTotalOvershoot) {
-        minTotalOvershoot = totalOvershoot;
+      let isBetter = false;
+      if (method === 'overshoot') {
+        if (totalOvershoot < bestOvershoot) {
+          isBetter = true;
+        } else if (totalOvershoot === bestOvershoot) {
+          if (totalItems < bestItems) {
+            isBetter = true;
+          } else if (totalItems === bestItems) {
+            if (totalItemDiff < bestDiff) {
+              isBetter = true;
+            }
+          }
+        }
+      } else if (method === 'equal') {
+        if (totalItemDiff < bestDiff) {
+          isBetter = true;
+        } else if (totalItemDiff === bestDiff) {
+          if (totalItems < bestItems) {
+            isBetter = true;
+          } else if (totalItems === bestItems) {
+            if (totalOvershoot < bestOvershoot) {
+              isBetter = true;
+            }
+          }
+        }
+      } else if (method === 'least') {
+        if (totalItems < bestItems) {
+          isBetter = true;
+        } else if (totalItems === bestItems) {
+          if (totalItemDiff < bestDiff) {
+            isBetter = true;
+          } else if (totalItemDiff === bestDiff) {
+            if (totalOvershoot < bestOvershoot) {
+              isBetter = true;
+            }
+          }
+        }
+      }
+
+      if (isBetter) {
+        bestOvershoot = totalOvershoot;
+        bestItems = totalItems;
+        bestDiff = totalItemDiff;
         bestDist = dist;
       }
     }
