@@ -6,7 +6,7 @@ import { RankTable } from './components/Table';
 import { XpHistory } from './components/XpHistory';
 import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, optimizeAllRanks, OptimizationMethod, MAX_XP, MAX_RANK, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
-import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target, HelpCircle, CheckCircle2, Info } from 'lucide-react';
+import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target, HelpCircle, CheckCircle2, Info, Eye, EyeOff } from 'lucide-react';
 import { cn } from './lib/utils';
 
 function CalculatorCore() {
@@ -19,6 +19,8 @@ function CalculatorCore() {
   const [optimizationMethod, setOptimizationMethod] = useState<OptimizationMethod>('overshoot');
   const [activeOverview, setActiveOverview] = useState<'next' | 'all' | null>(null);
   const [activeTab, setActiveTab] = useState<'calculator' | 'guide'>('calculator');
+  const [showLeftDistribution, setShowLeftDistribution] = useState<boolean>(true);
+  const [showRightDistribution, setShowRightDistribution] = useState<boolean>(true);
 
   // Sync initial XP from auth context
   useEffect(() => {
@@ -353,7 +355,7 @@ function CalculatorCore() {
               </div>
             </m.div>
 
-            {projections.length > 0 && (
+            {projections.length > 0 && showLeftDistribution && (
               <m.div 
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -367,9 +369,18 @@ function CalculatorCore() {
                     <Package className="h-5 w-5 mr-2 text-warframe-gold" />
                     Distribution
                   </h2>
-                  <span className="text-sm font-mono text-warframe-gold bg-warframe-gold/10 px-3 py-1.5 rounded-lg border border-warframe-gold/20">
-                    {distribution}% W / {100 - distribution}% D
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-mono text-warframe-gold bg-warframe-gold/10 px-3 py-1.5 rounded-lg border border-warframe-gold/20">
+                      {distribution}% W / {100 - distribution}% D
+                    </span>
+                    <button
+                      onClick={() => setShowLeftDistribution(false)}
+                      className="text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10 cursor-pointer"
+                      title="Hide Left Distribution Panel"
+                    >
+                      <EyeOff className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mb-6">
@@ -423,6 +434,22 @@ function CalculatorCore() {
                   <span className="text-warframe-gold font-medium">Deployables</span> (Warframes, Companions, Archwings) grant {DEPLOYABLE_XP.toLocaleString()} XP each.
                 </div>
               </m.div>
+            )}
+
+            {projections.length > 0 && !showLeftDistribution && (
+              <m.button
+                onClick={() => setShowLeftDistribution(true)}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-full bg-black/30 hover:bg-black/50 border border-white/5 border-dashed p-4 rounded-xl flex items-center justify-between text-xs font-display uppercase tracking-widest text-gray-400 hover:text-warframe-gold cursor-pointer transition-all"
+                title="Show Left Distribution Panel"
+              >
+                <span className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-warframe-gold animate-pulse" />
+                  Show Left Distribution Setup
+                </span>
+                <Eye className="h-4 w-4 text-warframe-gold/80" />
+              </m.button>
             )}
 
             {projections.length > 0 && (
@@ -597,7 +624,7 @@ function CalculatorCore() {
                       {optimizationMethod === 'overshoot' && (
                         <span> The active multi-rank path is configured with the <span className="text-warframe-gold font-medium">Overshoot Criterion</span>, meaning it aims to suppress the total wasted XP accumulated across all visual milestone increments.</span>
                       )}
-                      {optimizationMethod === 'equal' && (
+                       {optimizationMethod === 'equal' && (
                         <span> The active multi-rank path focuses on the <span className="text-warframe-gold font-medium font-mono">Equal-Items Criterion</span>, meaning it seeks a balanced visual milestone roadmap minimizing disparity between cumulative weapons and deployables.</span>
                       )}
                       {optimizationMethod === 'least' && (
@@ -605,6 +632,110 @@ function CalculatorCore() {
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* Compact Quick Access Distribution & Optimization Widget (Frictionless adjustments above the table) */}
+                {showRightDistribution ? (
+                  <m.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-[#05090d] border border-white/5 rounded-xl p-5 relative overflow-hidden shadow-2xl space-y-4"
+                  >
+                    {/* Top gold line accent matching the user reference image */}
+                    <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-warframe-gold via-warframe-gold/60 to-transparent"></div>
+                    
+                    {/* Header Row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="p-1 rounded-sm border border-warframe-gold/30 bg-warframe-gold/5 text-warframe-gold">
+                          <Package className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-display font-medium tracking-wider uppercase text-white/90">
+                          Distribution
+                        </span>
+                      </div>
+                      {/* Status Pill Badge & Hide Icon */}
+                      <div className="flex items-center space-x-2">
+                        <div className="bg-[#0c1218]/90 text-warframe-gold border border-white/10 text-xs font-mono font-bold px-3 py-1.5 rounded-full select-none">
+                          {distribution}% W / {100 - distribution}% D
+                        </div>
+                        <button
+                          onClick={() => setShowRightDistribution(false)}
+                          className="text-gray-500 hover:text-white transition-colors p-1.5 rounded hover:bg-white/10 cursor-pointer"
+                          title="Hide Quick Optimizer"
+                        >
+                          <EyeOff className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Slider Control Row */}
+                    <div className="space-y-1 pt-1">
+                      <Slider 
+                        value={[distribution]} 
+                        max={100} 
+                        step={1} 
+                        onValueChange={(val) => setDistribution(val[0])}
+                        className="cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[9px] text-gray-500 font-bold uppercase tracking-widest px-0.5">
+                        <span>Deployables</span>
+                        <span>Weapons</span>
+                      </div>
+                    </div>
+
+                    {/* Optimization Selection Row */}
+                    <div className="border border-white/5 rounded-lg p-3 bg-black/20 space-y-2">
+                      <div className="flex items-center space-x-2 text-warframe-blue">
+                        <Target className="h-3.5 w-3.5" />
+                        <span className="text-[9px] text-gray-400 tracking-widest font-bold uppercase">
+                          Optimization Method
+                        </span>
+                      </div>
+                      <select
+                        value={optimizationMethod}
+                        onChange={(e) => setOptimizationMethod(e.target.value as OptimizationMethod)}
+                        className="bg-[#0a0e14] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-warframe-blue/50 cursor-pointer w-full hover:border-[#1e2730] transition-colors font-sans"
+                      >
+                        <option value="overshoot">Overshoot (Min Wasted XP)</option>
+                        <option value="equal">Equal-Items (Weps = Deps)</option>
+                        <option value="least">Least-Items (Min Farming)</option>
+                      </select>
+                    </div>
+
+                    {/* Quick Action Optimization Buttons Row styled after high-contrast image design */}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <button
+                        onClick={handleOptimize}
+                        className="bg-warframe-blue hover:brightness-110 text-black font-extrabold text-[11px] py-3.5 rounded-lg transition-all font-display uppercase tracking-widest text-center cursor-pointer shadow-lg outline-none active:scale-[0.98]"
+                        title="Optimize distribution based on the chosen criteria for your next rank only"
+                      >
+                        Optimize Next Rank
+                      </button>
+                      <button
+                        onClick={handleOptimizeAll}
+                        className="bg-warframe-gold hover:brightness-110 text-black font-extrabold text-[11px] py-3.5 rounded-lg transition-all font-display uppercase tracking-widest text-center cursor-pointer shadow-lg outline-none active:scale-[0.98]"
+                        title="Optimize distribution to minimize average milestones across all upcoming ranks simultaneously"
+                      >
+                        Optimize All Ranks
+                      </button>
+                    </div>
+                  </m.div>
+                ) : (
+                  <m.button
+                    onClick={() => setShowRightDistribution(true)}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full bg-[#05090d]/60 hover:bg-[#05090d]/85 border border-white/5 border-dashed p-3.5 rounded-xl flex items-center justify-between text-xs font-display uppercase tracking-widest text-gray-400 hover:text-warframe-blue cursor-pointer transition-all"
+                    title="Show Quick Optimizer Widget"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-warframe-blue animate-pulse" />
+                      Show Quick Optimizer Widget
+                    </span>
+                    <Eye className="h-4 w-4 text-warframe-blue/80" />
+                  </m.button>
                 )}
 
                 <div className="flex items-center space-x-2 px-1 mb-2 pt-2">
