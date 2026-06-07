@@ -192,6 +192,17 @@ function CalculatorCore() {
                 </div>
               </div>
 
+              {/* Calculation Info Callout */}
+              <div className="p-4 rounded-xl bg-indigo-500/[0.03] border border-indigo-400/10 hover:border-indigo-400/20 transition-colors space-y-2">
+                <div className="flex items-center gap-2 text-indigo-400">
+                  <Info className="h-4 w-4" />
+                  <h4 className="font-display font-semibold text-[11px] uppercase tracking-wider">Calculation Info & Scope</h4>
+                </div>
+                <p className="text-gray-400 text-xs leading-relaxed">
+                  Please note that this calculator intentionally disregards Mastery XP from <strong className="text-gray-300">intrinsics</strong>, <strong className="text-gray-300">necramechs</strong>, and <strong className="text-gray-300">junction/star chart missions</strong>. These alternative sources represent only about <span className="text-indigo-400 font-bold">13% to 15%</span> of the available in-game total, while <strong className="text-white">weapons and deployables</strong> grant <span className="text-emerald-400 font-bold">above 80%</span> of all total Mastery XP.
+                </p>
+              </div>
+
               <div className="pt-2">
                 <button
                   onClick={() => setActiveTab('calculator')}
