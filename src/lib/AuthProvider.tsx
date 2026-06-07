@@ -2,6 +2,22 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy } from 'firebase/firestore';
 import { auth, db, googleProvider, isPlaceholderConfig } from './firebase';
+import { EscapeHatchModal } from '../components/EscapeHatchModal';
+
+function detectInAppBrowser(): boolean {
+  if (typeof window === 'undefined' || !window.navigator) return false;
+  const ua = window.navigator.userAgent || window.navigator.vendor || (window as any).opera || '';
+  
+  // Clean, robust, comprehensive list of in-app browser patterns
+  const inAppRegex = /FBAN|FBAV|Instagram|Twitter|TwitterAndroid|TwitterforiPhone|Line|WeChat|MicroMessenger|Pinterest|Snapchat|Snapchat\/|Discord|Slack|Telegram|TelegramAndroid|Telegram-iOS|reddit|redditmail|GSA|MQQBrowser|wv|WebView|Android.*Version\/[0-9.]+\s+Chrome\/[0-9.]+\s+Mobile/i;
+  
+  // Specific checks for iOS/Android WebView signatures from user agents
+  const isWebView = (/(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(ua)) || 
+                    (ua.indexOf('Version/') > -1 && ua.indexOf('Chrome/') === -1 && /Android/i.test(ua)) ||
+                    ua.indexOf('wv') > -1;
+  
+  return inAppRegex.test(ua) || isWebView;
+}
 
 export interface XpHistoryItem {
   id: string;
@@ -24,6 +40,8 @@ interface AuthContextType {
   addHistoryEntry: (xp: number, rankNumber: number, rankName: string, note?: string) => Promise<void>;
   deleteHistoryEntry: (id: string) => Promise<void>;
   clearXpHistory: () => Promise<void>;
+  showEscapeHatch: boolean;
+  setShowEscapeHatch: (show: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [masteryXp, setMasteryXp] = useState<number>(0);
   const [xpHistory, setXpHistory] = useState<XpHistoryItem[]>([]);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showEscapeHatch, setShowEscapeHatch] = useState<boolean>(false);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | undefined;
@@ -187,6 +206,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthError("Firebase API configuration is missing. You need to configure Netlify environment variables to enable login.");
       return;
     }
+
+    // Block Google Auth inside Mobile In-App web views to prevent disallowed_useragent Error (Directive 5)
+    if (detectInAppBrowser()) {
+      setShowEscapeHatch(true);
+      return;
+    }
     
     try {
       await signInWithPopup(auth, googleProvider);
@@ -306,9 +331,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateMasteryXp,
       addHistoryEntry,
       deleteHistoryEntry,
-      clearXpHistory
+      clearXpHistory,
+      showEscapeHatch,
+      setShowEscapeHatch
     }}>
       {children}
+      {showEscapeHatch && <EscapeHatchModal onClose={() => setShowEscapeHatch(false)} />}
     </AuthContext.Provider>
   );
 }
