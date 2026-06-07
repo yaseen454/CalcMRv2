@@ -1,16 +1,29 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy } from 'firebase/firestore';
 import { auth, db, googleProvider, isPlaceholderConfig } from './firebase';
+
+export interface XpHistoryItem {
+  id: string;
+  xp: number;
+  rankNumber: number;
+  rankName: string;
+  timestamp: number;
+  note?: string;
+}
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   masteryXp: number;
+  xpHistory: XpHistoryItem[];
   authError: string | null;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateMasteryXp: (xp: number) => Promise<void>;
+  addHistoryEntry: (xp: number, rankNumber: number, rankName: string, note?: string) => Promise<void>;
+  deleteHistoryEntry: (id: string) => Promise<void>;
+  clearXpHistory: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,10 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [masteryXp, setMasteryXp] = useState<number>(0);
+  const [xpHistory, setXpHistory] = useState<XpHistoryItem[]>([]);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | undefined;
+    let unsubscribeHistory: (() => void) | undefined;
     
     if (isPlaceholderConfig) {
       setAuthError("Firebase API configuration is missing on this site. Please add your Netlify environment variables (see instructions in chat).");
@@ -55,16 +70,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      // Unsubscribe from any previous snapshot listener to prevent cross-account triggers/leaks
+      // Unsubscribe from any previous snapshot listeners (profile + history) to prevent cross-account triggers/leaks (Directive 4)
       if (unsubscribeSnapshot) {
         unsubscribeSnapshot();
         unsubscribeSnapshot = undefined;
       }
+      if (unsubscribeHistory) {
+        unsubscribeHistory();
+        unsubscribeHistory = undefined;
+      }
 
       setUser(currentUser);
+      
+      // Dispatch synchronous state clears at the exact memory point a valid/invalid user is parsed (Directive 3)
+      setXpHistory([]);
+      setMasteryXp(0);
+
       if (currentUser) {
         setLoading(true); // Re-trigger loading state when user auth changes
-        setMasteryXp(0); // Immediately clear the visual state to prevent bleed-over!
         const docRef = doc(db, 'users', currentUser.uid);
         
         // Use onSnapshot for real-time updates and faster local caching
@@ -101,10 +124,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching user data", error);
           setLoading(false);
         });
+
+        // Set up real-time listener for cost-optimized inputHistory subcollection (Directive 7)
+        const historyCollRef = collection(db, 'users', currentUser.uid, 'inputHistory');
+        const historyQuery = query(historyCollRef, orderBy('createdAt', 'desc'));
+        
+        unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
+          const items: XpHistoryItem[] = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const inputStr = data.input || '';
+            const parts = inputStr.split('::');
+            const xp = parseInt(parts[0], 10) || 0;
+            const rankNumber = parseInt(parts[1], 10) || 0;
+            const rankName = parts[2] || '';
+            const note = parts.slice(3).join('::') || '';
+            const timestamp = data.createdAt ? (data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now()) : Date.now();
+            
+            items.push({
+              id: doc.id,
+              xp,
+              rankNumber,
+              rankName,
+              timestamp,
+              note
+            });
+          });
+          setXpHistory(items);
+        }, (error) => {
+          console.error("Error fetching input history", error);
+        });
       } else {
         // If logged out or unauthenticated, retrieve the guest/offline storage value
         const offlineXpStr = localStorage.getItem('calcmr_mastery_xp_offline');
         setMasteryXp(offlineXpStr ? parseInt(offlineXpStr, 10) : 0);
+
+        // Fetch offline local storage history
+        const offlineHistoryStr = localStorage.getItem('calcmr_xp_history_offline');
+        if (offlineHistoryStr) {
+          try {
+            setXpHistory(JSON.parse(offlineHistoryStr));
+          } catch (e) {
+            setXpHistory([]);
+          }
+        } else {
+          setXpHistory([]);
+        }
         setLoading(false);
       }
     });
@@ -112,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubscribeAuth();
       if (unsubscribeSnapshot) unsubscribeSnapshot();
+      if (unsubscribeHistory) unsubscribeHistory();
     };
   }, []);
 
@@ -123,8 +189,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     try {
-      // With our dynamic authDomain and public/_redirects Netlify proxy configured,
-      // signInWithPopup works flawlessly on custom domains without cross-origin blockage.
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Error signing in with Google", error);
@@ -134,7 +198,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      // Synchronously wipe offline local cache synchronously immediately before logout (Directive 2 + 3)
       localStorage.removeItem('calcmr_mastery_xp_offline');
+      localStorage.removeItem('calcmr_xp_history_offline');
+      setXpHistory([]);
       await signOut(auth);
       setAuthError(null);
     } catch (error) {
@@ -159,15 +226,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Helper to generate a random alphanumeric ID matching validation requirements
+  const generateSafeId = () => {
+    return Math.random().toString(36).substring(2, 11) + Math.random().toString(36).substring(2, 11);
+  };
+
+  const addHistoryEntry = async (xp: number, rankNumber: number, rankName: string, note?: string) => {
+    const currentAuthUser = auth.currentUser;
+    const itemInput = `${xp}::${rankNumber}::${rankName}::${(note || '').trim()}`;
+    const safeHistoryId = generateSafeId();
+
+    if (currentAuthUser) {
+      try {
+        // Nested subcollection structured according to Directive 7
+        const subcollRef = doc(db, 'users', currentAuthUser.uid, 'inputHistory', safeHistoryId);
+        await setDoc(subcollRef, {
+          input: itemInput,
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        console.error("Error adding history entry in Firestore:", error);
+      }
+    } else {
+      // Offline/Guest local storage fallback
+      const newItem: XpHistoryItem = {
+        id: safeHistoryId,
+        xp,
+        rankNumber,
+        rankName,
+        timestamp: Date.now(),
+        note: note || ''
+      };
+      const offlineHistoryStr = localStorage.getItem('calcmr_xp_history_offline');
+      let currentList: XpHistoryItem[] = [];
+      if (offlineHistoryStr) {
+        try {
+          currentList = JSON.parse(offlineHistoryStr);
+        } catch (e) {
+          currentList = [];
+        }
+      }
+      const updatedList = [newItem, ...currentList];
+      setXpHistory(updatedList);
+      localStorage.setItem('calcmr_xp_history_offline', JSON.stringify(updatedList));
+    }
+  };
+
+  const deleteHistoryEntry = async (id: string) => {
+    const currentAuthUser = auth.currentUser;
+    if (!currentAuthUser) {
+      // Local deletions are allowed in offline mode
+      const updated = xpHistory.filter(item => item.id !== id);
+      setXpHistory(updated);
+      localStorage.setItem('calcmr_xp_history_offline', JSON.stringify(updated));
+    } else {
+      console.warn("Cloud-saved history logs are permanently and immutably written; deletion is client-side restricted.");
+    }
+  };
+
+  const clearXpHistory = async () => {
+    const currentAuthUser = auth.currentUser;
+    if (!currentAuthUser) {
+      setXpHistory([]);
+      localStorage.setItem('calcmr_xp_history_offline', '[]');
+    } else {
+      console.warn("Cloud-saved history logs are structurally immutable; batch deletion is client-side restricted.");
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
       loading, 
       masteryXp, 
+      xpHistory,
       authError, 
       signInWithGoogle, 
       logout, 
-      updateMasteryXp 
+      updateMasteryXp,
+      addHistoryEntry,
+      deleteHistoryEntry,
+      clearXpHistory
     }}>
       {children}
     </AuthContext.Provider>

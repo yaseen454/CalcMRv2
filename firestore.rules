@@ -9,6 +9,8 @@ service cloud.firestore {
 
     // Primitive Helpers
     function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
@@ -22,16 +24,28 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isOwner(userId) && isValidId(userId);
       
-      allow create: if isSignedIn() 
-        && request.auth.uid == userId
+      allow create: if isOwner(userId) 
+        && isValidId(userId)
         && isValidUserProfile(incoming());
         
-      allow update: if isSignedIn() 
-        && request.auth.uid == userId
+      allow update: if isOwner(userId) 
+        && isValidId(userId)
         && isValidUserProfile(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['currentXp', 'updatedAt']);
+
+      // Secure User History Subcollection (Rule 7 Compliance)
+      match /inputHistory/{historyId} {
+        // Enforce listing and creation limits, block structural edits or deletes
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && isValidId(historyId)
+                      && incoming().input is string
+                      && incoming().input.size() <= 500
+                      && incoming().createdAt == request.time;
+        allow get, update, delete: if false;
+      }
     }
   }
 }

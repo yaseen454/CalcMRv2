@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './lib/AuthProvider';
 import { Navigation } from './components/Navigation';
 import { Slider } from './components/Slider';
 import { RankTable } from './components/Table';
+import { XpHistory } from './components/XpHistory';
 import { getCurrentRank, getUpcomingRanks, UpcomingRankProjection, optimizeDistribution, optimizeAllRanks, MAX_XP, MAX_RANK, WEAPON_XP, DEPLOYABLE_XP } from './lib/calc';
 import { m, LazyMotion, domAnimation } from 'motion/react';
 import { Server, Crosshair, Package, Cloud, ChevronsUp, Rocket, Target } from 'lucide-react';
@@ -233,6 +234,10 @@ function CalculatorCore() {
                   <span className="text-warframe-gold font-medium">Deployables</span> (Warframes, Companions, Archwings) grant {DEPLOYABLE_XP.toLocaleString()} XP each.
                 </div>
               </m.div>
+            )}
+
+            {projections.length > 0 && (
+              <XpHistory />
             )}
           </div>
 

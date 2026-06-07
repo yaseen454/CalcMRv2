@@ -15,6 +15,22 @@
         }
       },
       "required": ["currentXp", "updatedAt"]
+    },
+    "InputHistoryEntry": {
+      "title": "InputHistoryEntry",
+      "description": "Represents an immutable recorded input history milestone",
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "The serialized details of the XP history entry (XP, rank, rank name, custom notes)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of creation"
+        }
+      },
+      "required": ["input", "createdAt"]
     }
   },
   "firestore": {
@@ -23,6 +39,12 @@
         "$ref": "#/entities/UserProfile"
       },
       "description": "User profile containing their mastery XP data"
+    },
+    "users/{userId}/inputHistory/{historyId}": {
+      "schema": {
+        "$ref": "#/entities/InputHistoryEntry"
+      },
+      "description": "Subcollection under user profile to store immutable recorded input history milestones to prevent database cost inflation"
     }
   }
 }
