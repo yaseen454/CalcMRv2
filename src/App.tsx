@@ -326,6 +326,53 @@ function CalculatorCore() {
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-warframe-blue focus:border-transparent transition-all font-mono"
                     />
                   </div>
+
+                  {/* Compact Mastery XP Quick Adjustment Slider */}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">
+                      <span>Quick XP Adjust</span>
+                      <span className="text-warframe-blue">{((rawXpInput / MAX_XP) * 100).toFixed(0)}% Max</span>
+                    </div>
+                    <Slider
+                      value={[Math.min(rawXpInput, MAX_XP)]}
+                      max={MAX_XP}
+                      step={5000}
+                      onValueChange={(val) => {
+                        const newXp = val[0];
+                        setXpInput(newXp.toLocaleString());
+                        updateMasteryXp(newXp);
+                      }}
+                      className="cursor-pointer"
+                    />
+                    {/* Exactly three labels provide overview metrics below */}
+                    <div className="relative flex justify-between text-[9px] text-gray-500 font-bold font-mono tracking-tight pt-1 select-none">
+                      <button 
+                        type="button"
+                        onClick={() => { setXpInput('0'); updateMasteryXp(0); }}
+                        className="flex flex-col items-start text-left cursor-pointer hover:text-white transition-colors focus:outline-none"
+                      >
+                        <span className="text-white font-semibold">Initiate</span>
+                        <span>0 XP</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setXpInput((1551474).toLocaleString()); updateMasteryXp(1551474); }}
+                        className="flex flex-col items-center text-center cursor-pointer hover:text-white transition-colors focus:outline-none"
+                      >
+                        <span className="text-warframe-gold font-semibold">Gold Dragon</span>
+                        <span>1.55M XP</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setXpInput(MAX_XP.toLocaleString()); updateMasteryXp(MAX_XP); }}
+                        className="flex flex-col items-end text-right cursor-pointer hover:text-white transition-colors focus:outline-none"
+                      >
+                        <span className="text-warframe-blue font-semibold">Legendary 6</span>
+                        <span>3.13M XP</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {user && masteryXp > 0 && (
                     <p className="text-xs text-gray-500 mt-2 font-mono">
                       Last cloud save: {masteryXp.toLocaleString()} XP
